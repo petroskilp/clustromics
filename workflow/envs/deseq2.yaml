@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - bioconductor-deseq2 =1.40.2
+  - r-stringr =1.5.0
+  - r-ashr =2.2_54
+  - r-pheatmap =1.0.12
+  - r-KernSmooth =2.23-22
+  - r-tidyverse =2.0.0
