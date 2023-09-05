@@ -4,9 +4,11 @@ rule get_sra:
         "sra/{accession}_R2.fastq",
     log:
         "logs/get-sra/{accession}.log",
-    threads: 1
+    params:
+        extra="--skip-technical"
+    threads: 6
     wrapper:
-        "v1.21.4/bio/sra-tools/fasterq-dump"
+        "v2.6.0/bio/sra-tools/fasterq-dump"
 
 
 rule cutadapt_pipe:
