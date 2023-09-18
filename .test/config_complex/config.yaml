@@ -5,6 +5,12 @@ samples: config_complex/samples.tsv
 # sample).
 units: config_complex/units.tsv
 
+options:
+  qc: True
+  diffexp: True
+  normalization: True
+  ml: True
+
 
 ref:
   # Ensembl species name

@@ -1,15 +1,29 @@
 rule get_sra:
     output:
-        "sra/{accession}_R1.fastq",
-        "sra/{accession}_R2.fastq",
+        temp("sra/pe/{accession}_1.fastq.gz"),
+        temp("sra/pe/{accession}_2.fastq.gz"),
     log:
         "logs/get-sra/{accession}.log",
     params:
         extra="--skip-technical"
     threads: 6
+    resources:
+        load=51
     wrapper:
         "v2.6.0/bio/sra-tools/fasterq-dump"
 
+rule get_sra_se:
+    output:
+        temp("sra/se/{accession}.fastq.gz"),
+    log:
+        "logs/get-sra/{accession}.log",
+    params:
+        extra="--skip-technical"
+    threads: 6
+    resources:
+        load=51
+    wrapper:
+        "v2.6.0/bio/sra-tools/fasterq-dump"
 
 rule cutadapt_pipe:
     input:

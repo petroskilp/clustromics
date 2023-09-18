@@ -3,6 +3,8 @@ import glob
 import pandas as pd
 from snakemake.remote import FTP
 from snakemake.utils import validate
+import subprocess as sp
+
 
 ftp = FTP.RemoteProvider()
 
@@ -13,55 +15,6 @@ samples = (
     .set_index("sample_name", drop=False)
     .sort_index()
 )
-
-
-def get_final_output():
-    final_output = expand(
-        "results/diffexp/{contrast}.diffexp.symbol.tsv",
-        contrast=config["diffexp"]["contrasts"],
-    )
-    final_output.append(expand(
-        "results/diffexp/{contrast}.expressiontable.tsv",
-        contrast=config["diffexp"]["contrasts"],
-    ))
-    final_output.append(expand(
-        "results/diffexp/{contrast}.volcanoplot.svg",
-        contrast=config["diffexp"]["contrasts"],
-    ))
-    final_output.append("results/deseq2/normcounts.symbol.tsv")
-    final_output.append("results/counts/all.symbol.tsv")
-    final_output.append("results/qc/multiqc_report.html")
-    final_output.append("results/counts/normalized_cpm.tsv")
-    final_output.append("results/ml/parsed_tpm.tsv")
-
-    if config["pca"]["activate"]:
-        # get all the variables to plot a PCA for
-        pca_variables = list(config["diffexp"]["variables_of_interest"])
-        if config["diffexp"]["batch_effects"]:
-            pca_variables.extend(config["diffexp"]["batch_effects"])
-        if config["pca"]["labels"]:
-            pca_variables.extend(config["pca"]["labels"])
-        final_output.extend(
-            expand("results/pca.{variable}.svg", variable=pca_variables)
-        )
-    if config["heatmap"]["activate"]:
-        # get all the variables to plot a PCA for
-        heatmap_variables = list(config["diffexp"]["variables_of_interest"])
-        if config["diffexp"]["batch_effects"]:
-            heatmap_variables.extend(config["diffexp"]["batch_effects"])
-        if config["pca"]["labels"]:
-            heatmap_variables.extend(config["heatmap"]["labels"])
-        final_output.extend(
-            expand("results/heatmap.{variable}.svg", variable=heatmap_variables)
-        )
-    variables = list(config["diffexp"]["variables_of_interest"])
-    model_names = list(config["ml"])
-    final_output.extend(
-            expand("results/ml/{variable}_{model_name}_roc_curve.png", variable=variables, model_name=model_names)
-        )
-    return final_output
-
-
 validate(samples, schema="../schemas/samples.schema.yaml")
 
 units = (
@@ -70,6 +23,61 @@ units = (
     .sort_index()
 )
 validate(units, schema="../schemas/units.schema.yaml")
+
+def get_final_output():
+    final_output=list()
+    if config["options"]["diffexp"]:
+        final_output.append(expand(
+            "results/diffexp/{contrast}.diffexp.symbol.tsv",
+            contrast=config["diffexp"]["contrasts"],
+        ))
+        final_output.append(expand(
+            "results/diffexp/{contrast}.expressiontable.tsv",
+            contrast=config["diffexp"]["contrasts"],
+        ))
+        final_output.append(expand(
+            "results/diffexp/{contrast}.volcanoplot.svg",
+            contrast=config["diffexp"]["contrasts"],
+        ))
+        if config["pca"]["activate"]:
+            # get all the variables to plot a PCA for
+            pca_variables = list(config["diffexp"]["variables_of_interest"])
+            if config["diffexp"]["batch_effects"]:
+                pca_variables.extend(config["diffexp"]["batch_effects"])
+            if config["pca"]["labels"]:
+                pca_variables.extend(config["pca"]["labels"])
+            final_output.extend(
+                expand("results/pca.{variable}.svg", variable=pca_variables)
+            )
+        if config["heatmap"]["activate"]:
+            # get all the variables to plot a PCA for
+            heatmap_variables = list(config["diffexp"]["variables_of_interest"])
+            if config["diffexp"]["batch_effects"]:
+                heatmap_variables.extend(config["diffexp"]["batch_effects"])
+            if config["heatmap"]["labels"]:
+                heatmap_variables.extend(config["heatmap"]["labels"])
+            final_output.extend(
+                expand("results/heatmap.{variable}.svg", variable=heatmap_variables)
+            )
+        final_output.append("results/deseq2/normcounts.symbol.tsv")
+        final_output.append("results/counts/all.symbol.tsv")
+    if config["options"]["normalization"]:
+        final_output.append("results/counts/normalized_tpm.tsv")
+    if config["options"]["qc"]:
+        final_output.append("results/qc/multiqc_report.html")
+    if config["options"]["ml"]:
+        
+        final_output.append("results/ml/parsed_tpm.tsv")
+        
+        variables = list(config["diffexp"]["variables_of_interest"])
+        model_names = list(config["ml"])
+        final_output.extend(
+                expand("results/ml/{variable}_{model_name}_roc_curve.png", variable=variables, model_name=model_names)
+            )
+    return final_output
+
+
+
 
 
 wildcard_constraints:
@@ -83,7 +91,7 @@ def get_cutadapt_input(wildcards):
     if pd.isna(unit["fq1"]):
         # SRA sample (always paired-end for now)
         accession = unit["sra"]
-        return expand("sra/{accession}_{read}.fastq", accession=accession, read=[R1, R2])
+        return expand("sra/{accession}_{read}.fastq.gz", accession=accession, read=[1, 2])
 
     if unit["fq1"].endswith("gz"):
         ending = ".gz"
@@ -151,16 +159,19 @@ def get_fq(wildcards):
         if pd.isna(u["fq1"]):
             # SRA sample (always paired-end for now)
             accession = u["sra"]
-            return dict(
-                zip(
-                    ["fq1", "fq2"],
-                    expand(
-                        "sra/{accession}_{group}.fastq",
-                        accession=accession,
-                        group=["R1", "R2"],
-                    ),
+            if sra_is_paired_end(accession):
+                return dict(
+                    zip(
+                        ["fq1", "fq2"],
+                        expand(
+                            "sra/pe/{accession}_{group}.fastq.gz",
+                            accession=accession,
+                            group=["1", "2"],
+                        ),
+                    )
                 )
-            )
+            else:
+                return {"fq1": f"sra/se/{accession}.fastq.gz"}
         if not is_paired_end(wildcards.sample):
             return {"fq1": f"{u.fq1}"}
         else:
@@ -180,6 +191,12 @@ def get_deseq2_threads(wildcards=None):
     few_coeffs = False if wildcards is None else len(get_contrast(wildcards)) < 10
     return 1 if len(samples) < 100 or few_coeffs else 6
 
+def sra_is_paired_end(sra):
+    output = sp.getoutput("fastq-dump -I -X 1 -Z --split-spot "+sra+" 2>/dev/null \
+        | awk '{if(NR % 2 == 1) print substr($1,length($1),1)}' \
+        | uniq \
+        | wc -l")
+    return output=='2'
 
 def is_activated(xpath):
     c = config
@@ -207,7 +224,7 @@ def get_fastqs(wc):
         # SRA sample (always paired-end for now)
         accession = unit["sra"]
         return expand(
-            "sra/{accession}_{read}.fastq", accession=accession, read=wc.read[-1]
+            "sra/{accession}_{read}.fastq.gz", accession=accession, read=wc.read[-1]
         )
     fq = "fq{}".format(wc.read[-1])
     return units.loc[wc.sample, fq].tolist()

@@ -10,6 +10,23 @@ properties:
   units:
     type: string
 
+  options:
+    type: object
+    properties:
+      qc:
+        type: boolean
+      diffexp:
+        type: boolean
+      normalization:
+        type: boolean
+      ml:
+        type: boolean
+    required:
+      - qc
+      - diffexp
+      - normalization
+      - ml
+
   ref:
     type: object
     properties:
