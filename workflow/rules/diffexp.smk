@@ -63,6 +63,7 @@ rule pca:
         "results/deseq2/all.rds",
     output:
         report("results/pca.{variable}.svg", "../report/pca.rst"),
+        report("results/pca.{variable}_labeled.svg", "../report/pca.rst"),
     conda:
         "../envs/deseq2.yaml"
     log:
@@ -70,11 +71,28 @@ rule pca:
     script:
         "../scripts/plot-pca.R"
 
+rule pca_subplot:
+    input:
+        "results/deseq2/all.rds",
+    output:
+        report("results/pca_sub.{variable}.{value}.svg", "../report/pca.rst"),
+        report("results/pca_sub.{variable}.{value}_labeled.svg", "../report/pca.rst"),
+    conda:
+        "../envs/deseq2.yaml"
+    log:
+        "logs/pca.{variable}_{value}.log",
+    script:
+        "../scripts/plot-pca_variable.R"
+
 rule heatmap:
     input:
         "results/deseq2/all.rds",
     output:
-        report("results/heatmap.{variable}.svg", "../report/heatmap.rst"),
+        all=report("results/heatmap.{variable}_alldeg.svg", "../report/heatmap.rst"),
+        up=report("results/heatmap.{variable}_upregulated.svg", "../report/heatmap.rst"),
+        down=report("results/heatmap.{variable}_downregulated.svg", "../report/heatmap.rst"),
+        top20=report("results/heatmap.{variable}_top20.svg", "../report/heatmap.rst"),
+        top100=report("results/heatmap.{variable}_top100.svg", "../report/heatmap.rst"),
     params:
         heatmap_labels=config["heatmap"]["labels"],
     conda:
@@ -131,3 +149,20 @@ rule deseq2_expressiontable:
     threads: get_deseq2_threads()
     script:
         "../scripts/deseq2-exptable.R"
+
+rule rlog_transform:
+    input:
+        dds_obj="results/deseq2/all.rds",
+    output:
+        rld="results/deseq2/rlog_transform.RDS.gz",
+        fpkm="results/fpkm/all.tsv",
+    conda:
+        "../envs/deseq2.yaml"
+    log:
+        "logs/deseq2/rlog_trans.report.log",
+    resources:
+        mem_mb=8192,
+        time_min=29,
+    threads: 4
+    script:
+        "../scripts/rlog_transform.R"

@@ -5,10 +5,14 @@ samples: config_basic/samples.tsv
 # sample).
 units: config_basic/units.tsv
 
+organism: "Homo sapiens" # Name of Organsim sequenced (Supported: Mus Musculus, Homo sapiens)
+gene_name_type: ENSEMBL # ENSEMBL or HGNC Or ENTREZ_ID
+
 options:
-  qc: False
-  diffexp: False
+  qc: True
+  diffexp: True
   normalization: True
+  gsea: False
   ml: False
 
 
@@ -25,7 +29,7 @@ trimming:
   # If you activate trimming by setting this to `True`, you will have to
   # specify the respective cutadapt adapter trimming flag for each unit
   # in the `units.tsv` file's `adapters` column
-  activate: False
+  activate: True
 
 mergeReads:
   activate: False
@@ -74,6 +78,10 @@ diffexp:
   # With more variables_of_interest or batch_effects, you could introduce different
   # assumptions into your model, by specicifying a different model here.
   model: ~condition
+  gsea_use_stat: False
+  pval_threshold: 0.05 
+  LFC_threshold: 0.5
+  shrink_lfc: False
 
 params:
   cutadapt-pe: ""
@@ -84,6 +92,32 @@ feature_counts:
   threads: 4
   # Specify any additional arguments.
   additional: "-s 2 -t gene -g gene_id"
+
+gsea:
+  Hallmark_gsea: 
+    category: H
+    subcategory: NULL
+    use_gsea: True
+    database: MSigDB
+    id_class: ENSEMBL
+  Hallmark_fisher:
+    category: H
+    subcategory: NULL
+    use_gsea: False 
+    database: MSigDB
+    id_class: ENSEMBL
+  MsigDB_C3:
+    catecory: C3
+    subcategory: "TFT:GTRD"
+    use_gsea: True
+    database: MSigDB
+    id_class: ENSEMBl
+  Reactome_GSEA:
+    category: NULL
+    subcategory: NULL
+    use_gsea: True
+    database: Reactome
+    id_class: ENTREZID
 
 ml:
   - svc

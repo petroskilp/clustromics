@@ -145,6 +145,21 @@ rule rseqc_readgc:
     shell:
         "read_GC.py -i {input} -o {params.prefix} > {log} 2>&1"
 
+rule fastqc:
+    input:
+        get_fastq_files,
+    output:
+        html="results/qc/fastqc/{sample}_{unit}_{group}.html",
+        zip="results/qc/fastqc/{sample}_{unit}_{group}_fastqc.zip" # the suffix _fastqc.zip is necessary for multiqc to find the file. If not using multiqc, you are free to choose an arbitrary filename
+    params:
+        extra = "--quiet"
+    log:
+        "logs/fastqc/{sample}_{unit}_{group}.log"
+    threads: 1
+    resources:
+        mem_mb = 1024
+    wrapper:
+        "v3.14.0/bio/fastqc"
 
 rule multiqc:
     input:
@@ -188,9 +203,14 @@ rule multiqc:
             "logs/rseqc/rseqc_junction_annotation/{unit.sample_name}_{unit.unit_name}.log",
             unit=units.itertuples(),
         ),
+        expand(
+            "results/qc/fastqc/{unit.sample_name}_{unit.unit_name}_{group}.html",
+            unit=units.itertuples(),
+            group=["R1", "R2"],
+        ),
     output:
         "results/qc/multiqc_report.html",
     log:
         "logs/multiqc.log",
     wrapper:
-        "v3.3.5/bio/multiqc"
+        "v3.14.0/bio/multiqc"

@@ -9,6 +9,7 @@ options:
   qc: True
   diffexp: True
   normalization: True
+  gsea: True
   ml: True
 
 
@@ -79,6 +80,10 @@ diffexp:
   # specify a different model to use, for example skipping the interaction:
   # model: ~jointly_handled + treatment_1 + treatment_2
   model: ""
+  gsea_use_stat: False
+  pval_threshold: 0.05 
+  LFC_threshold: 0.5
+  shrink_lfc: False
 
 
 params:
@@ -90,6 +95,32 @@ feature_counts:
   threads: 4
   # Specify any additional arguments.
   additional: "-s 2 -t gene -g gene_id"
+
+gsea:
+  Hallmark_gsea: 
+    category: H
+    subcategory: NULL
+    use_gsea: True
+    database: MSigDB
+    id_class: ENSEMBL
+  Hallmark_fisher:
+    category: H
+    subcategory: NULL
+    use_gsea: False 
+    database: MSigDB
+    id_class: ENSEMBL
+  MsigDB_C3:
+    catecory: C3
+    subcategory: "TFT:GTRD"
+    use_gsea: True
+    database: MSigDB
+    id_class: ENSEMBl
+  Reactome_GSEA:
+    category: NULL
+    subcategory: NULL
+    use_gsea: True
+    database: Reactome
+    id_class: ENTREZID
 
 ml:
   - knn

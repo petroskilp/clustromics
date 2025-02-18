@@ -102,6 +102,7 @@ for (condition in conditions)
       res<-merge(res, mean)
   }
 }
+res<-merge(res, norm_counts,by.x="gene", by.y='row.names')
 
 
 # TODO explore IHW usage

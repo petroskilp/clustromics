@@ -26,6 +26,10 @@ validate(units, schema="../schemas/units.schema.yaml")
 
 def get_final_output():
     final_output=list()
+    final_output.append(expand(
+        "results/star/{unit.sample_name}_{unit.unit_name}/Aligned.sortedByCoord.out.bam.bai",
+        unit=units.itertuples(),
+    ))
     if config["options"]["diffexp"]:
         final_output.append(expand(
             "results/diffexp/{contrast}.diffexp.symbol.tsv",
@@ -33,6 +37,10 @@ def get_final_output():
         ))
         final_output.append(expand(
             "results/diffexp/{contrast}.expressiontable.tsv",
+            contrast=config["diffexp"]["contrasts"],
+        ))
+        final_output.append(expand(
+            "results/diffexp/{contrast}.expressiontable.symbol.tsv",
             contrast=config["diffexp"]["contrasts"],
         ))
         final_output.append(expand(
@@ -57,10 +65,15 @@ def get_final_output():
             if config["heatmap"]["labels"]:
                 heatmap_variables.extend(config["heatmap"]["labels"])
             final_output.extend(
-                expand("results/heatmap.{variable}.svg", variable=heatmap_variables)
+                expand("results/heatmap.{variable}_top20.svg", variable=heatmap_variables)
             )
         final_output.append("results/deseq2/normcounts.symbol.tsv")
         final_output.append("results/counts/all.symbol.tsv")
+    if config["options"]["gsea"]:
+        final_output.append(expand(
+            "results/diffexp/{contrast}.gseares.RDS",
+            contrast=config["diffexp"]["contrasts"],
+        ))
     if config["options"]["normalization"]:
         final_output.append("results/counts/normalized_tpm.tsv")
     if config["options"]["qc"]:
@@ -152,7 +165,7 @@ def get_fq(wildcards):
                 )
             )
         # single end sample
-        return {"fq1": "trimmed/{sample}_{unit}_single.fastq.gz".format(**wildcards)}
+        return {"fq1": "results/trimmed/{sample}_{unit}_single.fastq.gz".format(**wildcards)}
     else:
         # no trimming, use raw reads
         u = units.loc[(wildcards.sample, wildcards.unit)]
@@ -177,6 +190,59 @@ def get_fq(wildcards):
         else:
             return {"fq1": f"{u.fq1}", "fq2": f"{u.fq2}"}
 
+def get_fq_trimgalore(wildcards):
+    # no trimming, use raw reads
+    u = units.loc[(wildcards.sample, wildcards.unit)]
+    if pd.isna(u["fq1"]):
+        # SRA sample (always paired-end for now)
+        accession = u["sra"]
+        if sra_is_paired_end(accession):
+            return dict(
+                zip(
+                    ["fq1", "fq2"],
+                    expand(
+                        "sra/pe/{accession}_{group}.fastq.gz",
+                        accession=accession,
+                        group=["1", "2"],
+                    ),
+                )
+            )
+        else:
+            return {"fq1": f"sra/se/{accession}.fastq.gz"}
+    if not is_paired_end(wildcards.sample):
+        return {"fq1": f"{u.fq1}"}
+    else:
+        return {"fq1": f"{u.fq1}", "fq2": f"{u.fq2}"}
+
+def get_fastq_files(wildcards):
+    if config["trimming"]["activate"]:
+        # activated trimming, use trimmed data
+        if is_paired_end(wildcards.sample):
+            # paired-end sample
+            return {"results/trimmed/{sample}_{unit}_{group}.fastq.gz".format(**wildcards)}
+            
+        # single end sample
+        return {"results/trimmed/{sample}_{unit}_single.fastq.gz".format(**wildcards)}
+    else:
+        # no trimming, use raw reads
+        u = units.loc[(wildcards.sample, wildcards.unit)]
+        if pd.isna(u["fq1"]):
+            # SRA sample (always paired-end for now)
+            accession = u["sra"]
+            if sra_is_paired_end(accession):
+                if wildcards.group=='R1':
+                    return {f"sra/pe/{accession}_1.fastq.gz"}
+                elif wildcards.group=='R2':
+                    return {f"sra/pe/{accession}_2.fastq.gz"}
+            else:
+                return {f"sra/se/{accession}.fastq.gz"}
+        if not is_paired_end(wildcards.sample):
+            return {"fq1": f"{u.fq1}"}
+        else:
+            if wildcards.group=='R1':
+                return [f"{u.fq1}"]
+            elif wildcards.group=='R2':
+                return [f"{u.fq2}"]
 
 def get_strandedness(units):
     if "strandedness" in units.columns:
